@@ -1,0 +1,18 @@
+{
+  "//": "Validates the hand-authored declarations against real usage. Type-check only (noEmit): the shipped .d.ts is source of truth, not generated. `npm run types`.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "allowJs": false,
+    "forceConsistentCasingInFileNames": true,
+    "types": []
+  },
+  "include": ["types/**/*.ts", "types/**/*.d.ts"]
+}

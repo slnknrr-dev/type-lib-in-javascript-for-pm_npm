@@ -1,0 +1,71 @@
+{
+  "name": "@slnknrr/type-im",
+  "version": "1.2.0",
+  "description": "The honest typeof: type predicates that return the evidence, not a verdict. Each is* asks every witness it has — constructor name, toStringTag, duck protocol, internal-slot brand, prototype chain, same-realm constructor — and returns their answers as bits. Cross-realm, forgery-visible, allocation-free; typed array kind and width without an instanceof chain; function kinds from the intrinsic source text.",
+  "keywords": [
+    "typeof",
+    "type-check",
+    "is-array",
+    "typed-array",
+    "cross-realm",
+    "brand-check",
+    "internal-slot",
+    "toStringTag",
+    "duck-typing",
+    "is-promise",
+    "is-map",
+    "is-plain-object",
+    "async-function",
+    "generator",
+    "arrow-function",
+    "iterator",
+    "bitmask",
+    "zero-allocation"
+  ],
+  "license": "MIT",
+  "author": "Yury Slinkin <slnknrr.dev@gmail.com> (https://github.com/slnknrr-dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm/issues"
+  },
+  "homepage": "https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm/tree/type-im#readme",
+  "funding": {
+    "type": "ko-fi",
+    "url": "https://ko-fi.com/slnknrr"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./types/type-im.d.ts",
+      "default": "./src/type-im.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./src/type-im.js",
+  "types": "./types/type-im.d.ts",
+  "files": [
+    "src",
+    "types/type-im.d.ts",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "bench": "node bench/index.js",
+    "types": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run types && npm test"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
