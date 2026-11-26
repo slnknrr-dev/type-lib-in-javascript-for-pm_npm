@@ -185,7 +185,7 @@ Both packages can be used side by side; `type-ez` never shadows anything in the 
 
 ## Repository layout
 
-Every `@slnknrr` library family lives in one GitHub repository, and **every npm package is a branch** of it — with its own README, tests and releases. A release is a tag on the package's branch, `<package>@<version>` (`v<version>` on a `main` branch); CI tests it and publishes it to npm.
+Every `@slnknrr` library family lives in one GitHub repository, and **every npm package is a branch** of it — with its own README, tests and releases. A release is a version bump: when a push to the package's branch carries a `package.json` version that is not on npm yet, CI tests it, publishes it to npm and tags it `<package>@<version>` (`v<version>` on a `main` branch).
 
 This package is the `type-ez` branch of [`slnknrr-dev/type-lib-in-javascript-for-pm_npm`](https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm); its releases are tagged `type-ez@<version>`.
 

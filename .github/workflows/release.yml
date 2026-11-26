@@ -1,21 +1,24 @@
-# Release: npm package + GitHub Release.
+# Release: npm package + tag + GitHub Release, on a version bump.
 #
-#   tag v<version>          (branch main)       → tests → npm publish → GitHub Release
-#   tag <package>@<version> (branch <package>)  → the same, e.g. num-im@1.2.0 from branch num-im
-#   manual run                                  → tests → the npm tarball as a run artifact, nothing published
+#   push to the package's branch (main, or the branch named after the package)
+#     version in package.json already on npm  → nothing to do
+#     version not on npm yet                  → tests → npm publish → tag → GitHub Release
+#   manual run                                → the same; useful to retry a failed release
 #
-# One repository = one library family, one branch = one npm package; the tag says which.
-# Before packing, relative links in *.md become absolute GitHub URLs pinned to the tag:
+# One repository = one library family, one branch = one npm package.
+# Tags are made by this workflow: v<version> on main, <package>@<version> on a package branch.
+# Before packing, relative links in *.md become absolute GitHub URLs pinned to that tag:
 # npmjs.com cannot resolve relative links. The repository itself keeps them relative.
 #
 # npm: Trusted Publishing (OIDC), no tokens. Once per package on npmjs.com →
-# Settings → Trusted Publisher → GitHub Actions: owner slnknrr-dev, this repository, workflow release.yml.
+# Settings → Trusted Publisher → GitHub Actions: owner slnknrr-dev, this repository,
+# workflow release.yml, environment empty, "Allow npm publish" checked.
 
 name: release
 
 on:
   push:
-    tags: ["v*", "*@*"]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -26,19 +29,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.meta.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Is this version on npm yet?
+        id: meta
+        run: node .github/scripts/release.mjs check
+
   test:
+    needs: check
+    if: needs.check.outputs.publish == 'true'
     uses: ./.github/workflows/test.yml
 
   release:
-    needs: test
+    needs: [check, test]
+    if: needs.check.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # GitHub Release
+      contents: write   # tag + GitHub Release
       id-token: write   # npm Trusted Publishing + provenance
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # branches and tags: the tag must sit on its package's branch
+          fetch-depth: 0   # tags: release notes since the previous release of this package
 
       - uses: actions/setup-node@v4
         with:
@@ -48,17 +71,20 @@ jobs:
       - name: npm with Trusted Publishing
         run: npm install -g npm@latest
 
-      - name: Tag ↔ package ↔ branch
+      - name: Release metadata
         id: meta
         run: node .github/scripts/release.mjs check
 
       - name: Install
+        if: steps.meta.outputs.publish == 'true'
         run: npm install --no-audit --no-fund
 
       - name: Absolute links for npmjs.com
-        run: node .github/scripts/release.mjs links "${{ steps.meta.outputs.ref }}"
+        if: steps.meta.outputs.publish == 'true'
+        run: node .github/scripts/release.mjs links "${{ steps.meta.outputs.tag }}"
 
       - name: Pack
+        if: steps.meta.outputs.publish == 'true'
         id: pack
         run: |
           mkdir -p out
@@ -67,25 +93,19 @@ jobs:
           echo "file=out/$file" >> "$GITHUB_OUTPUT"
           ls -l out
 
-      - name: Run artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-package
-          path: out/*
-
       - name: npm publish
         if: steps.meta.outputs.publish == 'true'
         run: npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag "${{ steps.meta.outputs.dist_tag }}"
 
-      - name: GitHub Release
+      - name: Tag and GitHub Release
         if: steps.meta.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.meta.outputs.ref }}
+          TAG: ${{ steps.meta.outputs.tag }}
           PREV: ${{ steps.meta.outputs.prev }}
           DIST_TAG: ${{ steps.meta.outputs.dist_tag }}
         run: |
-          args=(--title "$TAG" --generate-notes --verify-tag)
+          args=(--title "$TAG" --target "$GITHUB_SHA" --generate-notes)
           [ -n "$PREV" ] && args+=(--notes-start-tag "$PREV")
           [ "$DIST_TAG" = "next" ] && args+=(--prerelease)
           gh release create "$TAG" out/* "${args[@]}"

@@ -1,17 +1,16 @@
 //-------------------
 // release helper for .github/workflows/release.yml (not published: lives outside `files`)
 //-------------------
-// one repository = one library family, one branch = one npm package:
-//   branch `main`      -> tag v<version>
-//   branch `<name>`    -> tag <name>@<version>   (<name> = package name without the scope)
+// one repository = one library family, one branch = one npm package.
+// A release is a version bump: a push whose package.json version is not on npm yet gets published,
+// then tagged  v<version> (branch main)  or  <package>@<version> (branch <package>).
 //
-//   node .github/scripts/release.mjs check          validate the tag against package.json and its branch
+//   node .github/scripts/release.mjs check          is this push a release? (branch ↔ package, npm registry)
 //   node .github/scripts/release.mjs links <ref>    rewrite relative links in *.md to absolute GitHub URLs at <ref>
 //
 // npmjs.com renders README files without a repository context, so a relative link there is a dead link.
 // `links` runs on the CI checkout right before `npm pack`: the repository keeps relative links,
-// the tarball gets absolute ones, pinned to the released tag.
-
+// the tarball gets absolute ones, pinned to the release tag.
 import { readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname, relative, resolve, posix, sep } from 'node:path';
@@ -47,46 +46,55 @@ const short = pkg.name.replace(/^@[^/]+\//, '');
 //-------------------
 // check
 //-------------------
+//is pkg.name@pkg.version on the registry? 404 is a clear no; any other failure stops the release
+const published = () => {
+	try {
+		execFileSync('npm', ['view', `${pkg.name}@${pkg.version}`, 'version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform == 'win32' });
+		return true;
+	} catch (e) {
+		if (/E404|404 Not Found/.test(String(e.stderr) + String(e.stdout))) return false;
+		fail(`npm view ${pkg.name}@${pkg.version} failed: ${String(e.stderr).trim()}`);
+	}
+};
+
 const check = () => {
 	const repo = slug();
-	const tag = env.GITHUB_REF_TYPE == 'tag' ? env.GITHUB_REF_NAME : '';
+	const branch = env.GITHUB_REF_NAME || git('branch', '--show-current');
+	const sha = env.GITHUB_SHA || git('rev-parse', 'HEAD');
+	output('repo', repo);
 
-	if (!tag) {
-		//manual run: pack only, links pinned to the commit
+	//only the package's own branch releases it: main, or the branch named after the package
+	if (branch != 'main' && branch != short) {
+		console.log(`branch ${branch} is not the release branch of ${pkg.name} (main or ${short}): nothing to publish`);
 		output('publish', 'false');
-		output('ref', env.GITHUB_SHA || git('rev-parse', 'HEAD'));
-		output('repo', repo);
+		output('ref', sha);
 		return;
 	}
+	if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) fail(`package.json version is not semver: ${pkg.version}`);
 
-	const m = /^(?:v|([a-z0-9][a-z0-9._-]*)@)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(tag);
-	if (!m) fail(`tag ${tag}: expected v<version> (branch main) or <package>@<version> (branch <package>)`);
-	const [, name, version] = m;
-	const branch = name ?? 'main';
+	const prefix = branch == 'main' ? 'v' : `${short}@`;
+	const tag = prefix + pkg.version;
 
-	if (name && name != short) fail(`tag ${tag} names ${name}, but this branch holds ${pkg.name}`);
-	if (version != pkg.version) fail(`tag ${tag} says ${version}, package.json says ${pkg.version}`);
-
-	//the tagged commit must belong to the package's branch
-	const sha = env.GITHUB_SHA || git('rev-parse', 'HEAD');
-	try {
-		git('merge-base', '--is-ancestor', sha, `origin/${branch}`);
-	} catch {
-		fail(`tag ${tag} points to ${sha.slice(0, 7)}, which is not on branch ${branch}`);
+	if (published()) {
+		console.log(`${pkg.name}@${pkg.version} is already on npm: nothing to publish`);
+		output('publish', 'false');
+		output('ref', sha);
+		return;
 	}
+	//a tag pushed by hand before the release is reused: gh release create attaches to it
+	if (git('tag', '--list', tag)) console.log(`tag ${tag} already exists: the release will use it`);
 
 	//release notes start from the previous release of the same package, not of a sibling branch
-	const prefix = name ? `${name}@` : 'v';
 	const prev = git('tag', '--list', `${prefix}*`, '--sort=-v:refname', '--merged', sha)
 		.split('\n')
 		.filter(t => t && t != tag && /^\d/.test(t.slice(prefix.length)))[0] ?? '';
 
+	console.log(`release: ${pkg.name}@${pkg.version} as ${tag}${prev ? ` (notes since ${prev})` : ''}`);
 	output('publish', 'true');
 	output('ref', tag);
-	output('repo', repo);
-	output('branch', branch);
+	output('tag', tag);
 	output('prev', prev);
-	output('dist_tag', version.includes('-') ? 'next' : 'latest');
+	output('dist_tag', pkg.version.includes('-') ? 'next' : 'latest');
 };
 
 //-------------------
