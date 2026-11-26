@@ -7,7 +7,9 @@ import vm from 'node:vm';
 import { types as U } from 'node:util';
 import t from '../src/type-im.js';
 
-const F = vm.runInNewContext('({ arr: [1], u8: new Uint8Array(2), f16: new Float16Array(1), ab: new ArrayBuffer(1), dv: new DataView(new ArrayBuffer(1)), map: new Map(), set: new Set(), wm: new WeakMap(), p: Promise.resolve(1), d: new Date(0), re: /x/, err: new RangeError("x"), box: Object(1), obj: { a: 1 }, afn: async () => {}, gen: function* () {}, agen: async function* () {}, cls: class {}, arrow: () => {}, it: [1].values(), genobj: (function* () {})() })');
+const F16 = typeof Float16Array == "function"; //Node 24+
+const TYPED = [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, ...(F16 ? [Float16Array] : [])];
+const F = vm.runInNewContext('({ arr: [1], u8: new Uint8Array(2), f16: typeof Float16Array == "function" ? new Float16Array(1) : undefined, ab: new ArrayBuffer(1), dv: new DataView(new ArrayBuffer(1)), map: new Map(), set: new Set(), wm: new WeakMap(), p: Promise.resolve(1), d: new Date(0), re: /x/, err: new RangeError("x"), box: Object(1), obj: { a: 1 }, afn: async () => {}, gen: function* () {}, agen: async function* () {}, cls: class {}, arrow: () => {}, it: [1].values(), genobj: (function* () {})() })');
 
 //=== §1 containers ===
 test('isarr', () => {
@@ -21,12 +23,12 @@ test('isarr', () => {
 	assert.equal(t.isarr(new Proxy([], {})), t.isarr.NAME | t.isarr.BRAND | t.isarr.PROTO | t.isarr.OWN); //a Proxy of an array is an array to Array.isArray
 });
 test('istyped: every kind, the slot, the shape, the future', () => {
-	for (const C of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, Float16Array]) {
+	for (const C of TYPED) {
 		assert.equal(t.istyped(new C(1)), 63, C.name);
 		assert.equal(U.isTypedArray(new C(1)), true);
 	}
 	assert.equal(t.istyped(F.u8), 15);
-	assert.equal(t.istyped(F.f16), 15); //Float16Array: known by its shape, not by a list
+	if (F16) assert.equal(t.istyped(F.f16), 15); //Float16Array: known by its shape, not by a list
 	assert.equal(t.istyped(Buffer.alloc(1)), 28);
 	assert.equal(t.istyped(new DataView(new ArrayBuffer(1))), 0); //a view, not a typed array
 	assert.equal(t.istyped([1]), t.istyped.SUFFIX); //named Array, nothing more
@@ -294,15 +296,15 @@ test('telem: the packed element type', () => {
 	assert.deepEqual(unpack(e(new Int16Array(1))), { bits: 16, kind: e.INT, clamped: false });
 	assert.deepEqual(unpack(e(new Float32Array(1))), { bits: 32, kind: e.FLOAT, clamped: false });
 	assert.deepEqual(unpack(e(new Float64Array(1))), { bits: 64, kind: e.FLOAT, clamped: false });
-	assert.deepEqual(unpack(e(new Float16Array(1))), { bits: 16, kind: e.FLOAT, clamped: false });
+	if (F16) assert.deepEqual(unpack(e(new Float16Array(1))), { bits: 16, kind: e.FLOAT, clamped: false });
 	assert.deepEqual(unpack(e(new BigInt64Array(1))), { bits: 64, kind: e.BIGINT, clamped: false });
 	assert.deepEqual(unpack(e(new BigUint64Array(1))), { bits: 64, kind: e.BIGUINT, clamped: false });
 	assert.equal(e(new Uint8ClampedArray(1)), 0x1208);
-	assert.equal(e(new Float16Array(1)), 0x310);
+	if (F16) assert.equal(e(new Float16Array(1)), 0x310);
 	assert.equal(e(Buffer.alloc(1)), e(new Uint8Array(1))); //from the slot: a Buffer is Uint8
 	assert.equal(e(new (class PixelArray extends Uint8ClampedArray {})(1)), 0x1208); //from the slot: the subclass name says nothing
 	assert.equal(e(F.u8), 0x208);
-	assert.equal(e(F.f16), 0x310);
+	if (F16) assert.equal(e(F.f16), 0x310);
 	assert.equal(e(new (class Float32Array {})()), 0x320); //from the name: a claim (istyped says 3)
 	assert.equal(e({ [Symbol.toStringTag]: 'Int32Array' }), 0x120); //from the tag: a claim (istyped says 4)
 	assert.equal(e(new (class Int128Array {})()), 0x180); //the shape of a kind that may come
@@ -310,7 +312,7 @@ test('telem: the packed element type', () => {
 	assert.equal(e(new DataView(new ArrayBuffer(1))), 0);
 	assert.equal(e(1), 0);
 	//BYTES_PER_ELEMENT follows from the width, for every real kind
-	for (const C of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, Float16Array]) {
+	for (const C of TYPED) {
 		assert.equal((e(new C(1)) & 0xff) / 8, C.BYTES_PER_ELEMENT, C.name);
 	}
 });
