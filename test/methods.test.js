@@ -8,6 +8,7 @@ import { types as U } from 'node:util';
 import t from '../src/type-im.js';
 
 const F16 = typeof Float16Array == "function"; //Node 24+
+const ITER = typeof Iterator == "function"; //the Iterator global and its helpers: Node 22+
 const TYPED = [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, ...(F16 ? [Float16Array] : [])];
 const F = vm.runInNewContext('({ arr: [1], u8: new Uint8Array(2), f16: typeof Float16Array == "function" ? new Float16Array(1) : undefined, ab: new ArrayBuffer(1), dv: new DataView(new ArrayBuffer(1)), map: new Map(), set: new Set(), wm: new WeakMap(), p: Promise.resolve(1), d: new Date(0), re: /x/, err: new RangeError("x"), box: Object(1), obj: { a: 1 }, afn: async () => {}, gen: function* () {}, agen: async function* () {}, cls: class {}, arrow: () => {}, it: [1].values(), genobj: (function* () {})() })');
 
@@ -238,7 +239,7 @@ test('tfn', () => {
 
 //=== §4 iteration ===
 test('isiter / isaiter / isgen / isagen / isiterable', () => {
-	for (const it of [[].values(), new Map().keys(), new Set().entries(), 'x'[Symbol.iterator](), [1].values().map((x) => x), (function* () {})(), /x/g[Symbol.matchAll]('x')]) assert.equal(t.isiter(it), 15);
+	for (const it of [[].values(), new Map().keys(), new Set().entries(), 'x'[Symbol.iterator](), ...(ITER ? [[1].values().map((x) => x)] : []), (function* () {})(), /x/g[Symbol.matchAll]('x')]) assert.equal(t.isiter(it), 15);
 	assert.equal(t.isiter(F.it), 7); //no local %IteratorPrototype%
 	assert.equal(t.isiter(F.genobj), 7);
 	assert.equal(t.isiter({ next() {} }), t.isiter.DUCK);
@@ -246,7 +247,7 @@ test('isiter / isaiter / isgen / isagen / isiterable', () => {
 	assert.equal(t.isiter(new Map()), 0); //iterable, not an iterator
 	assert.equal(t.isiter([]), 0);
 	assert.equal(t.isiter({ [Symbol.toStringTag]: 'Array Iterator' }), t.isiter.TAG);
-	assert.equal(t.isiter(Object.create(Iterator.prototype)), t.isiter.PROTO | t.isiter.TAG); //Iterator.prototype's tag accessor answers 'Iterator'
+	if (ITER) assert.equal(t.isiter(Object.create(Iterator.prototype)), t.isiter.PROTO | t.isiter.TAG); //Iterator.prototype's tag accessor answers 'Iterator'
 	const ag = (async function* () {})();
 	assert.equal(t.isaiter(ag), 15);
 	assert.equal(t.isaiter({ next() {}, [Symbol.asyncIterator]() { return this; } }), 3);
