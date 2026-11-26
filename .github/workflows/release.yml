@@ -88,9 +88,11 @@ jobs:
         id: pack
         run: |
           mkdir -p out
-          file="$(npm pack --pack-destination out --json | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0, "utf8"))[0].filename)')"
+          npm pack --pack-destination out
+          file="$(ls out/*.tgz)"
+          [ "$(echo "$file" | wc -l)" = 1 ] || { echo "::error::expected one tarball in out/"; exit 1; }
           (cd out && sha256sum *.tgz > SHA256SUMS.txt)
-          echo "file=out/$file" >> "$GITHUB_OUTPUT"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
           ls -l out
 
       - name: npm publish
