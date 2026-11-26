@@ -1,0 +1,72 @@
+{
+  "name": "@slnknrr/type-ez",
+  "version": "1.2.0",
+  "description": "The friendly face of @slnknrr/type-im: the same cross-realm, forgery-aware type witnesses behind familiar names and plain booleans. isMap, isTypedArray, isPromise, isPlainObject, isAsyncFunction, isClass, isGenerator and friends decided by the strongest witness each kind has; typedArrayKind, functionKind, errorName, kindOf.",
+  "keywords": [
+    "typeof",
+    "type-check",
+    "is-array",
+    "is-typed-array",
+    "is-promise",
+    "is-plain-object",
+    "is-map",
+    "is-set",
+    "is-date",
+    "is-regexp",
+    "is-error",
+    "is-async-function",
+    "is-generator",
+    "is-class",
+    "kind-of",
+    "cross-realm",
+    "type-im"
+  ],
+  "license": "MIT",
+  "author": "Yury Slinkin <slnknrr.dev@gmail.com> (https://github.com/slnknrr-dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm/issues"
+  },
+  "homepage": "https://github.com/slnknrr-dev/type-lib-in-javascript-for-pm_npm/tree/type-ez#readme",
+  "funding": {
+    "type": "ko-fi",
+    "url": "https://ko-fi.com/slnknrr"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./types/type-ez.d.ts",
+      "default": "./src/type-ez.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./src/type-ez.js",
+  "types": "./types/type-ez.d.ts",
+  "files": [
+    "src",
+    "types/type-ez.d.ts",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "types": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run types && npm test"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@slnknrr/type-im": "^1.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
