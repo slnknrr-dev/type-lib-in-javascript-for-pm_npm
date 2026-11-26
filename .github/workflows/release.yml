@@ -92,7 +92,7 @@ jobs:
           file="$(ls out/*.tgz)"
           [ "$(echo "$file" | wc -l)" = 1 ] || { echo "::error::expected one tarball in out/"; exit 1; }
           (cd out && sha256sum *.tgz > SHA256SUMS.txt)
-          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "file=./$file" >> "$GITHUB_OUTPUT"   # ./ — otherwise npm reads out/x.tgz as a GitHub user/repo
           ls -l out
 
       - name: npm publish
