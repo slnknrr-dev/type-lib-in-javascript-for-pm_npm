@@ -81,7 +81,7 @@ test('typedArrayKind / functionKind are objects; nothing packed leaks out', () =
 	assert.deepEqual(ez.typedArrayKind(new Uint8ClampedArray(1)), { kind: 'uint', bits: 8, clamped: true, bytesPerElement: 1 });
 	assert.deepEqual(ez.typedArrayKind(Buffer.alloc(1)), { kind: 'uint', bits: 8, clamped: false, bytesPerElement: 1 });
 	assert.deepEqual(ez.typedArrayKind(new BigUint64Array(1)), { kind: 'biguint', bits: 64, clamped: false, bytesPerElement: 8 });
-	assert.deepEqual(ez.typedArrayKind(new Float16Array(1)), { kind: 'float', bits: 16, clamped: false, bytesPerElement: 2 });
+	if (typeof Float16Array == "function") assert.deepEqual(ez.typedArrayKind(new Float16Array(1)), { kind: 'float', bits: 16, clamped: false, bytesPerElement: 2 });
 	assert.deepEqual(ez.typedArrayKind(F.u8), { kind: 'uint', bits: 8, clamped: false, bytesPerElement: 1 });
 	assert.equal(ez.typedArrayKind([]), undefined);
 	assert.equal(ez.typedArrayKind(1), undefined);

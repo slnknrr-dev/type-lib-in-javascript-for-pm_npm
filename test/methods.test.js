@@ -17,7 +17,7 @@ test('isArray / isTypedArray / isTypedArrayOf', () => {
 	assert.equal(ez.isArray(new Uint8Array(1)), false);
 	assert.equal(ez.isArray({ length: 0 }), false);
 	assert.equal(ez.isArray('abc'), false);
-	for (const C of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, Float16Array]) {
+	for (const C of [Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array, BigInt64Array, BigUint64Array, ...(typeof Float16Array == "function" ? [Float16Array] : [])]) {
 		assert.equal(ez.isTypedArray(new C(1)), true, C.name);
 		assert.equal(ez.isTypedArrayOf(new C(1), C), true, C.name);
 		assert.equal(ez.isTypedArrayOf(new C(1), C.name), true, C.name);
