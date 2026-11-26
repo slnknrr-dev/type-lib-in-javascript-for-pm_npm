@@ -1,0 +1,91 @@
+# Release: npm package + GitHub Release.
+#
+#   tag v<version>          (branch main)       → tests → npm publish → GitHub Release
+#   tag <package>@<version> (branch <package>)  → the same, e.g. num-im@1.2.0 from branch num-im
+#   manual run                                  → tests → the npm tarball as a run artifact, nothing published
+#
+# One repository = one library family, one branch = one npm package; the tag says which.
+# Before packing, relative links in *.md become absolute GitHub URLs pinned to the tag:
+# npmjs.com cannot resolve relative links. The repository itself keeps them relative.
+#
+# npm: Trusted Publishing (OIDC), no tokens. Once per package on npmjs.com →
+# Settings → Trusted Publisher → GitHub Actions: owner slnknrr-dev, this repository, workflow release.yml.
+
+name: release
+
+on:
+  push:
+    tags: ["v*", "*@*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # GitHub Release
+      id-token: write   # npm Trusted Publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # branches and tags: the tag must sit on its package's branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: npm with Trusted Publishing
+        run: npm install -g npm@latest
+
+      - name: Tag ↔ package ↔ branch
+        id: meta
+        run: node .github/scripts/release.mjs check
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Absolute links for npmjs.com
+        run: node .github/scripts/release.mjs links "${{ steps.meta.outputs.ref }}"
+
+      - name: Pack
+        id: pack
+        run: |
+          mkdir -p out
+          file="$(npm pack --pack-destination out --json | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0, "utf8"))[0].filename)')"
+          (cd out && sha256sum *.tgz > SHA256SUMS.txt)
+          echo "file=out/$file" >> "$GITHUB_OUTPUT"
+          ls -l out
+
+      - name: Run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: out/*
+
+      - name: npm publish
+        if: steps.meta.outputs.publish == 'true'
+        run: npm publish "${{ steps.pack.outputs.file }}" --provenance --access public --tag "${{ steps.meta.outputs.dist_tag }}"
+
+      - name: GitHub Release
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.ref }}
+          PREV: ${{ steps.meta.outputs.prev }}
+          DIST_TAG: ${{ steps.meta.outputs.dist_tag }}
+        run: |
+          args=(--title "$TAG" --generate-notes --verify-tag)
+          [ -n "$PREV" ] && args+=(--notes-start-tag "$PREV")
+          [ "$DIST_TAG" = "next" ] && args+=(--prerelease)
+          gh release create "$TAG" out/* "${args[@]}"

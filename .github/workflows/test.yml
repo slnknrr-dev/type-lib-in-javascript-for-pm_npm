@@ -1,0 +1,41 @@
+# Tests: unit tests and the type check of the shipped declarations.
+#
+# One repository = one library family, one branch = one npm package.
+# This file lives in every branch, so a push to a branch tests that branch's package.
+# release.yml calls it before publishing.
+
+name: test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Tests
+        run: npm test
+
+      - name: Types
+        run: npm run types --if-present
